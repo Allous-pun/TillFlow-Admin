@@ -57,15 +57,13 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={{
-        // Updated property names for react-day-picker v8+
-        PreviousMonthButton: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
-        ),
-        NextMonthButton: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
-        ),
-      }}
+      components={
+        {
+          // Use the correct component names and props
+          IconLeft: ({ ...props }: any) => <ChevronLeft className="h-4 w-4" {...props} />,
+          IconRight: ({ ...props }: any) => <ChevronRight className="h-4 w-4" {...props} />,
+        } as any
+      }
       {...props}
     />
   )

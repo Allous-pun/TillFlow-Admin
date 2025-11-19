@@ -87,7 +87,7 @@ export default function DashboardPage() {
         {/* Welcome Section */}
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-foreground">
-            Welcome back, {user.name}!
+            Welcome back, {user.fullName}!
           </h2>
           <p className="text-muted-foreground mt-1">
             Here's what's happening with your platform today.
