@@ -45,7 +45,7 @@ const adminNavItems: NavItem[] = [
   { title: 'Tokenization', href: '/dashboard/tokenization', icon: CreditCard },
   { title: 'Businesses', href: '/dashboard/businesses', icon: Building2 },
   { title: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-  { title: 'Profile', href: '/dashboard/profile', icon: User }, // Added Profile link
+  { title: 'Profile', href: '/dashboard/profile', icon: User },
 ];
 
 const settingsNavItems: NavItem[] = [
@@ -165,7 +165,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <User className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-sm font-medium truncate">{user?.fullName}</p>
             <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
           </div>
         </div>
@@ -216,13 +216,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <User className="h-4 w-4" />
                 </div>
-                <span className="hidden md:inline-block">{user?.name}</span>
+                <span className="hidden md:inline-block">{user?.fullName}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div>
-                  <p className="font-medium">{user?.name}</p>
+                  <p className="font-medium">{user?.fullName}</p>
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
               </DropdownMenuLabel>
