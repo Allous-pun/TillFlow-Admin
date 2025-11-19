@@ -1,0 +1,58 @@
+# Generated .gitignore for a Node + Vite + TypeScript + React project
+
+# Node modules
+/node_modules/
+
+# Build / output
+/dist/
+/build/
+/out/
+
+# Vite cache
+/.vite/
+
+# Parcel / Next / other common build caches
+/.parcel-cache/
+/.next/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment files (local secrets)
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs
+*.log
+
+# Test coverage
+/coverage/
+/coverage/*
+/.nyc_output/
+
+# Editor directories and files
+.vscode/
+.idea/
+.history/
+.DS_Store
+
+# Misc caches
+.cache/
+.turbo/
+.vercel/
+
+# ESLint cache
+.eslintcache
+
+# OS files
+Thumbs.db
+
+# Temporary files
+*.swp
+*.tmp

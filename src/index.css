@@ -1,0 +1,163 @@
+/**
+ * =====================================
+ *         UI DESIGN SYSTEM
+ * =====================================
+ * 
+ * Project: TillFlow Admin Dashboard
+ * Type: Enterprise Admin Panel & Merchant Landing
+ * 
+ * DESIGN PHILOSOPHY
+ * -----------------
+ * Core Principle: Professional, trustworthy, and efficient
+ * Design Style: Modern Enterprise with fintech aesthetics
+ * Emotion Goal: Confidence, clarity, and control
+ * 
+ * COLOR SYSTEM (MUST BE HSL FORMAT)
+ * -------------
+ * Primary: 217 91% 60% - Trust blue, primary actions
+ * Secondary: 142 76% 36% - Success green, positive states
+ * Accent: 262 83% 58% - Purple, highlights and emphasis
+ * Destructive: 0 84% 60% - Red, warnings and deletions
+ * 
+ * TYPOGRAPHY
+ * ----------
+ * Display: Inter/System UI - Clean and professional
+ * Body: Same font family for consistency
+ * 
+ * INTERACTIONS
+ * ------------
+ * Transitions: 200ms for instant feedback
+ * States: Complete hover, active, disabled coverage
+ * Shadows: Layered depth for hierarchy
+ * ====================================
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 262 83% 58%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217 91% 60%;
+  }
+  
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Sidebar styles - SIMPLIFIED */
+  .sidebar-nav a {
+    @apply relative cursor-pointer;
+  }
+  
+  /* Ensure dashboard layout works */
+  .dashboard-layout {
+    @apply relative;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbar for sidebar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 2px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  @apply outline-2 outline-offset-2 outline-ring;
+}
+
+/* Ensure smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
