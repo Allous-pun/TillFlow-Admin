@@ -29,176 +29,227 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Plus, 
   Search, 
   Edit2, 
-  Trash2, 
   Key, 
   Clock, 
   CheckCircle2, 
   XCircle,
-  Calendar,
   Copy,
   Eye,
-  EyeOff
+  EyeOff,
+  Users,
+  DollarSign,
+  RefreshCw,
+  Zap,
+  BarChart3,
+  Sparkles,
+  Globe,
+  Building,
+  Trash2,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock token data
-interface Token {
+// Real token plan interface matching your backend
+interface TokenPlan {
   id: string;
   name: string;
-  token: string;
-  type: 'API' | 'Access' | 'Integration' | 'Payment';
-  status: 'active' | 'inactive' | 'expired';
-  createdAt: string;
-  expiresAt: string;
-  createdBy: string;
   description: string;
-  lastUsed?: string;
-  usageCount: number;
+  duration: number;
+  formattedDuration: string;
+  features: string[];
+  isActive: boolean;
+  isPublic: boolean;
+  createdAt: string;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  updatedAt: string;
 }
 
-const mockTokens: Token[] = [
-  {
-    id: '1',
-    name: 'Payment Gateway API',
-    token: 'tk_live_51MxT2KLkdIyHRiDq8Zv',
-    type: 'Payment',
-    status: 'active',
-    createdAt: '2024-01-15',
-    expiresAt: '2025-01-15',
-    createdBy: 'admin@tillflow.com',
-    description: 'Primary payment processing API key',
-    lastUsed: '2024-01-20',
-    usageCount: 1247
-  },
-  {
-    id: '2',
-    name: 'Merchant Integration',
-    token: 'tk_test_49NdF8PLmkIyQRjEr5Yw',
-    type: 'Integration',
-    status: 'active',
-    createdAt: '2024-01-18',
-    expiresAt: '2024-07-18',
-    createdBy: 'admin@tillflow.com',
-    description: 'Merchant dashboard integration token',
-    lastUsed: '2024-01-21',
-    usageCount: 856
-  },
-  {
-    id: '3',
-    name: 'Legacy Access Token',
-    token: 'tk_prod_38KcG7NLjhIxPRkDs4Xw',
-    type: 'Access',
-    status: 'expired',
-    createdAt: '2023-06-10',
-    expiresAt: '2024-01-10',
-    createdBy: 'admin@tillflow.com',
-    description: 'Old access token for legacy systems',
-    usageCount: 523
-  },
-  {
-    id: '4',
-    name: 'API Webhooks',
-    token: 'tk_live_62OxU3MLndJyISjFt6Zx',
-    type: 'API',
-    status: 'active',
-    createdAt: '2024-01-12',
-    expiresAt: '2025-01-12',
-    createdBy: 'admin@tillflow.com',
-    description: 'Webhook notification system',
-    lastUsed: '2024-01-21',
-    usageCount: 2341
-  },
-  {
-    id: '5',
-    name: 'Test Environment',
-    token: 'tk_test_71PyV4NMoeKzJTkGu7Ay',
-    type: 'Integration',
-    status: 'inactive',
-    createdAt: '2024-01-19',
-    expiresAt: '2024-04-19',
-    createdBy: 'admin@tillflow.com',
-    description: 'Testing and development token',
-    usageCount: 145
-  },
-];
+// Token interface matching your backend
+interface Token {
+  id: string;
+  tokenValue: string;
+  plan: TokenPlan;
+  business?: any;
+  price: number;
+  formattedPrice: string;
+  transactionLimit: number;
+  revenueLimit: number;
+  transactionsUsed: number;
+  revenueUsed: number;
+  status: 'active' | 'expired' | 'suspended' | 'revoked';
+  isActive: boolean;
+  usagePercentage: number;
+  daysRemaining: number | null;
+  activatedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
 
 export default function TokenizationPage() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, token } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [tokens, setTokens] = useState<Token[]>(mockTokens);
+  const [plans, setPlans] = useState<TokenPlan[]>([]);
+  const [tokens, setTokens] = useState<Token[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
   
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
+  const [isCreateTokenDialogOpen, setIsCreateTokenDialogOpen] = useState(false);
+  const [isEditPlanDialogOpen, setIsEditPlanDialogOpen] = useState(false);
+  const [isEditTokenDialogOpen, setIsEditTokenDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isDeletePlanDialogOpen, setIsDeletePlanDialogOpen] = useState(false);
+  const [isDeleteTokenDialogOpen, setIsDeleteTokenDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<TokenPlan | null>(null);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [showToken, setShowToken] = useState<{ [key: string]: boolean }>({});
 
-  const [formData, setFormData] = useState({
+  const [planFormData, setPlanFormData] = useState({
     name: '',
-    type: 'API' as Token['type'],
     description: '',
-    expiresAt: '',
+    duration: 7,
+    features: [] as string[],
+    isPublic: true,
+  });
+
+  const [tokenFormData, setTokenFormData] = useState({
+    planId: '',
+    price: 0,
+    transactionLimit: 100,
+    revenueLimit: 0,
+  });
+
+  const [editTokenFormData, setEditTokenFormData] = useState({
+    price: 0,
+    transactionLimit: 100,
+    revenueLimit: 0,
   });
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
+      return;
     }
+    fetchData();
   }, [isAuthenticated, navigate]);
 
-  // Filter tokens
+  // Fetch data from backend
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchPlans(),
+        fetchTokens(),
+      ]);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPlans = async () => {
+    try {
+      const response = await fetch('https://tillflow-backend.onrender.com/api/tokens/admin/plans', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setPlans(data.plans);
+      } else {
+        throw new Error(data.message || 'Failed to fetch plans');
+      }
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch token plans",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchTokens = async () => {
+    try {
+      const response = await fetch('https://tillflow-backend.onrender.com/api/tokens/admin/tokens', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setTokens(data.tokens || []);
+      } else {
+        throw new Error(data.message || 'Failed to fetch tokens');
+      }
+    } catch (error) {
+      console.error('Error fetching tokens:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch tokens",
+        variant: "destructive",
+      });
+      setTokens([]);
+    }
+  };
+
+  // Filter tokens - now using real tokens data
   const filteredTokens = tokens.filter(token => {
-    const matchesSearch = token.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         token.token.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         token.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const businessName = token.business?.businessName || 'Unassigned';
+    const matchesSearch = businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         token.tokenValue.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         token.plan.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || token.status === statusFilter;
-    const matchesType = typeFilter === 'all' || token.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus;
   });
 
-  // Statistics
+  // Statistics - updated with real data
   const stats = {
-    total: tokens.length,
-    active: tokens.filter(t => t.status === 'active').length,
-    inactive: tokens.filter(t => t.status === 'inactive').length,
-    expired: tokens.filter(t => t.status === 'expired').length,
+    totalPlans: plans.length,
+    activePlans: plans.filter(p => p.isActive).length,
+    totalTokens: tokens.length,
+    activeTokens: tokens.filter(t => t.status === 'active').length,
+    expiredTokens: tokens.filter(t => t.status === 'expired').length,
+    totalRevenue: tokens.reduce((sum, token) => sum + (token.price || 0), 0) / 100,
+    totalTransactions: tokens.reduce((sum, token) => sum + token.transactionsUsed, 0),
   };
 
-  // Generate random token
-  const generateToken = () => {
-    const prefix = formData.type === 'Payment' ? 'tk_live' : 
-                   formData.type === 'API' ? 'tk_api' : 
-                   formData.type === 'Access' ? 'tk_acc' : 'tk_int';
-    const random = Math.random().toString(36).substring(2, 15) + 
-                   Math.random().toString(36).substring(2, 15);
-    return `${prefix}_${random}`;
-  };
-
-  // Create token
-  const handleCreate = () => {
-    if (!formData.name || !formData.expiresAt) {
+  // Create token plan
+  const handleCreatePlan = async () => {
+    if (!planFormData.name || !planFormData.duration) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -207,106 +258,473 @@ export default function TokenizationPage() {
       return;
     }
 
-    const newToken: Token = {
-      id: String(tokens.length + 1),
-      name: formData.name,
-      token: generateToken(),
-      type: formData.type,
-      status: 'active',
-      createdAt: new Date().toISOString().split('T')[0],
-      expiresAt: formData.expiresAt,
-      createdBy: user?.email || 'admin@tillflow.com',
-      description: formData.description,
-      usageCount: 0,
-    };
+    try {
+      const response = await fetch('https://tillflow-backend.onrender.com/api/tokens/admin/plans', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(planFormData),
+      });
 
-    setTokens([newToken, ...tokens]);
-    setIsCreateDialogOpen(false);
-    setFormData({ name: '', type: 'API', description: '', expiresAt: '' });
-    
-    toast({
-      title: "Token Created",
-      description: `${newToken.name} has been created successfully`,
-    });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPlans([data.plan, ...plans]);
+        setIsCreatePlanDialogOpen(false);
+        setPlanFormData({ 
+          name: '', 
+          description: '', 
+          duration: 7, 
+          features: [], 
+          isPublic: true 
+        });
+        
+        toast({
+          title: "Plan Created",
+          description: `${data.plan.name} has been created successfully`,
+        });
+      } else {
+        throw new Error(data.message || 'Failed to create plan');
+      }
+    } catch (error) {
+      console.error('Error creating plan:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create plan",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Update token plan
+  const handleUpdatePlan = async () => {
+    if (!selectedPlan || !planFormData.name || !planFormData.duration) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/tokens/admin/plans/${selectedPlan.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(planFormData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPlans(plans.map(plan => 
+          plan.id === selectedPlan.id ? data.plan : plan
+        ));
+        setIsEditPlanDialogOpen(false);
+        setSelectedPlan(null);
+        setPlanFormData({ 
+          name: '', 
+          description: '', 
+          duration: 7, 
+          features: [], 
+          isPublic: true 
+        });
+        
+        toast({
+          title: "Plan Updated",
+          description: "Plan details have been updated successfully",
+        });
+      } else {
+        throw new Error(data.message || 'Failed to update plan');
+      }
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update plan",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Delete token plan
+  const handleDeletePlan = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/tokens/admin/plans/${selectedPlan.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPlans(plans.filter(plan => plan.id !== selectedPlan.id));
+        setIsDeletePlanDialogOpen(false);
+        setSelectedPlan(null);
+        
+        toast({
+          title: "Plan Deleted",
+          description: `${selectedPlan.name} has been deleted successfully`,
+        });
+      } else {
+        throw new Error(data.message || 'Failed to delete plan');
+      }
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete plan",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Create token from plan
+  const handleCreateToken = async () => {
+    if (!tokenFormData.planId) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a plan",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('https://tillflow-backend.onrender.com/api/tokens/admin/tokens', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tokenFormData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Add the new token to the tokens list
+        setTokens([data.token, ...tokens]);
+        setIsCreateTokenDialogOpen(false);
+        setTokenFormData({
+          planId: '',
+          price: 0,
+          transactionLimit: 100,
+          revenueLimit: 0,
+        });
+        
+        toast({
+          title: "Token Created",
+          description: "Token has been created successfully",
+        });
+      } else {
+        throw new Error(data.message || 'Failed to create token');
+      }
+    } catch (error) {
+      console.error('Error creating token:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create token",
+        variant: "destructive",
+      });
+    }
   };
 
   // Update token
-  const handleUpdate = () => {
-    if (!selectedToken || !formData.name || !formData.expiresAt) {
+  const handleUpdateToken = async () => {
+    if (!selectedToken) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "No token selected",
         variant: "destructive",
       });
       return;
     }
 
-    setTokens(tokens.map(token => 
-      token.id === selectedToken.id 
-        ? { 
-            ...token, 
-            name: formData.name,
-            type: formData.type,
-            description: formData.description,
-            expiresAt: formData.expiresAt,
-          }
-        : token
-    ));
-    
-    setIsEditDialogOpen(false);
-    setSelectedToken(null);
-    setFormData({ name: '', type: 'API', description: '', expiresAt: '' });
-    
-    toast({
-      title: "Token Updated",
-      description: "Token details have been updated successfully",
-    });
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/tokens/admin/tokens/${selectedToken.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editTokenFormData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTokens(tokens.map(token => 
+          token.id === selectedToken.id ? data.token : token
+        ));
+        setIsEditTokenDialogOpen(false);
+        setSelectedToken(null);
+        setEditTokenFormData({
+          price: 0,
+          transactionLimit: 100,
+          revenueLimit: 0,
+        });
+        
+        toast({
+          title: "Token Updated",
+          description: "Token details have been updated successfully",
+        });
+      } else {
+        throw new Error(data.message || 'Failed to update token');
+      }
+    } catch (error) {
+      console.error('Error updating token:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update token",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Activate token
+  const handleActivateToken = async (tokenId: string) => {
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/tokens/admin/tokens/${tokenId}/activate`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTokens(tokens.map(token => 
+          token.id === tokenId ? { ...token, isActive: true, status: 'active' } : token
+        ));
+        
+        toast({
+          title: "Token Activated",
+          description: "Token has been activated successfully",
+        });
+      } else {
+        throw new Error(data.message || 'Failed to activate token');
+      }
+    } catch (error) {
+      console.error('Error activating token:', error);
+      toast({
+        title: "Error",
+        description: "Failed to activate token",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Deactivate token
+  const handleDeactivateToken = async (tokenId: string) => {
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/tokens/admin/tokens/${tokenId}/deactivate`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTokens(tokens.map(token => 
+          token.id === tokenId ? { ...token, isActive: false, status: 'suspended' } : token
+        ));
+        
+        toast({
+          title: "Token Deactivated",
+          description: "Token has been deactivated successfully",
+        });
+      } else {
+        throw new Error(data.message || 'Failed to deactivate token');
+      }
+    } catch (error) {
+      console.error('Error deactivating token:', error);
+      toast({
+        title: "Error",
+        description: "Failed to deactivate token",
+        variant: "destructive",
+      });
+    }
   };
 
   // Delete token
-  const handleDelete = () => {
+  const handleDeleteToken = async () => {
     if (!selectedToken) return;
 
-    setTokens(tokens.filter(token => token.id !== selectedToken.id));
-    setIsDeleteDialogOpen(false);
-    setSelectedToken(null);
-    
-    toast({
-      title: "Token Deleted",
-      description: "The token has been permanently deleted",
-      variant: "destructive",
-    });
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/tokens/admin/tokens/${selectedToken.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTokens(tokens.filter(token => token.id !== selectedToken.id));
+        setIsDeleteTokenDialogOpen(false);
+        setSelectedToken(null);
+        
+        toast({
+          title: "Token Deleted",
+          description: "Token has been deleted successfully",
+        });
+      } else {
+        throw new Error(data.message || 'Failed to delete token');
+      }
+    } catch (error) {
+      console.error('Error deleting token:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete token",
+        variant: "destructive",
+      });
+    }
   };
 
-  // Toggle token status
-  const toggleTokenStatus = (token: Token) => {
-    const newStatus = token.status === 'active' ? 'inactive' : 'active';
-    setTokens(tokens.map(t => 
-      t.id === token.id ? { ...t, status: newStatus } : t
-    ));
-    
-    toast({
-      title: `Token ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
-      description: `${token.name} is now ${newStatus}`,
-    });
+  // Toggle plan status
+  const togglePlanStatus = async (plan: TokenPlan) => {
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/tokens/admin/plans/${plan.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isActive: !plan.isActive }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPlans(plans.map(p => 
+          p.id === plan.id ? data.plan : p
+        ));
+        
+        toast({
+          title: `Plan ${!plan.isActive ? 'Activated' : 'Deactivated'}`,
+          description: `${plan.name} is now ${!plan.isActive ? 'active' : 'inactive'}`,
+        });
+      } else {
+        throw new Error(data.message || 'Failed to update plan status');
+      }
+    } catch (error) {
+      console.error('Error toggling plan status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update plan status",
+        variant: "destructive",
+      });
+    }
   };
 
-  // Open edit dialog
-  const openEditDialog = (token: Token) => {
+  // Open create token dialog
+  const openCreateTokenDialog = (plan?: TokenPlan) => {
+    if (plan) {
+      setTokenFormData({
+        planId: plan.id,
+        price: 0,
+        transactionLimit: 100,
+        revenueLimit: 0,
+      });
+    } else {
+      setTokenFormData({
+        planId: '',
+        price: 0,
+        transactionLimit: 100,
+        revenueLimit: 0,
+      });
+    }
+    setIsCreateTokenDialogOpen(true);
+  };
+
+  // Open edit plan dialog
+  const openEditPlanDialog = (plan: TokenPlan) => {
+    setSelectedPlan(plan);
+    setPlanFormData({
+      name: plan.name,
+      description: plan.description,
+      duration: plan.duration,
+      features: plan.features,
+      isPublic: plan.isPublic,
+    });
+    setIsEditPlanDialogOpen(true);
+  };
+
+  // Open edit token dialog
+  const openEditTokenDialog = (token: Token) => {
     setSelectedToken(token);
-    setFormData({
-      name: token.name,
-      type: token.type,
-      description: token.description,
-      expiresAt: token.expiresAt,
+    setEditTokenFormData({
+      price: token.price,
+      transactionLimit: token.transactionLimit,
+      revenueLimit: token.revenueLimit,
     });
-    setIsEditDialogOpen(true);
+    setIsEditTokenDialogOpen(true);
   };
 
-  // Open delete dialog
-  const openDeleteDialog = (token: Token) => {
+  // Open delete plan dialog
+  const openDeletePlanDialog = (plan: TokenPlan) => {
+    setSelectedPlan(plan);
+    setIsDeletePlanDialogOpen(true);
+  };
+
+  // Open delete token dialog
+  const openDeleteTokenDialog = (token: Token) => {
     setSelectedToken(token);
-    setIsDeleteDialogOpen(true);
+    setIsDeleteTokenDialogOpen(true);
   };
 
   // Open view dialog
@@ -330,26 +748,30 @@ export default function TokenizationPage() {
   };
 
   // Get status badge
-  const getStatusBadge = (status: Token['status']) => {
+  const getStatusBadge = (status: Token['status'], isActive: boolean) => {
+    if (!isActive) {
+      return <Badge className="bg-slate-500/10 text-slate-700 border-slate-500/20 hover:bg-slate-500/20"><Pause className="h-3 w-3 mr-1" />Inactive</Badge>;
+    }
+
     switch (status) {
       case 'active':
         return <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge>;
-      case 'inactive':
-        return <Badge className="bg-slate-500/10 text-slate-700 border-slate-500/20 hover:bg-slate-500/20"><XCircle className="h-3 w-3 mr-1" />Inactive</Badge>;
       case 'expired':
         return <Badge className="bg-rose-500/10 text-rose-700 border-rose-500/20 hover:bg-rose-500/20"><Clock className="h-3 w-3 mr-1" />Expired</Badge>;
+      case 'suspended':
+        return <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/20 hover:bg-amber-500/20"><XCircle className="h-3 w-3 mr-1" />Suspended</Badge>;
+      case 'revoked':
+        return <Badge className="bg-slate-500/10 text-slate-700 border-slate-500/20 hover:bg-slate-500/20"><XCircle className="h-3 w-3 mr-1" />Revoked</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
-  // Get type badge
-  const getTypeBadge = (type: Token['type']) => {
-    const colors = {
-      API: 'bg-blue-500/10 text-blue-700 border-blue-500/20',
-      Access: 'bg-violet-500/10 text-violet-700 border-violet-500/20',
-      Integration: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
-      Payment: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
-    };
-    return <Badge variant="outline" className={colors[type]}>{type}</Badge>;
+  // Get plan status badge
+  const getPlanStatusBadge = (isActive: boolean) => {
+    return isActive ? 
+      <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge> :
+      <Badge className="bg-slate-500/10 text-slate-700 border-slate-500/20 hover:bg-slate-500/20"><XCircle className="h-3 w-3 mr-1" />Inactive</Badge>;
   };
 
   // Mask token
@@ -360,40 +782,76 @@ export default function TokenizationPage() {
     return token.substring(0, 8) + '•••••••••••••••••';
   };
 
+  // Refresh data
+  const handleRefresh = () => {
+    fetchData();
+    toast({
+      title: "Refreshing",
+      description: "Data is being refreshed",
+    });
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Tokenization</h1>
-          <p className="text-slate-600 mt-1">Manage API tokens, access keys, and integrations</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Tokenization</h1>
+            <p className="text-slate-600 mt-1">Manage token plans and create tokens</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button onClick={() => setIsCreatePlanDialogOpen(true)} className="sm:w-auto bg-emerald-600 hover:bg-emerald-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Plan
+            </Button>
+            <Button onClick={handleRefresh} variant="outline" className="sm:w-auto">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Total Plans</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{stats.totalPlans}</p>
+                  <p className="text-xs text-emerald-600 mt-1">{stats.activePlans} active</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Key className="h-6 w-6 text-blue-700" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600">Total Tokens</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1">{stats.total}</p>
+                  <p className="text-2xl font-bold text-violet-600 mt-1">{stats.totalTokens}</p>
+                  <div className="flex gap-2 text-xs mt-1">
+                    <span className="text-emerald-600">{stats.activeTokens} active</span>
+                    <span className="text-rose-600">{stats.expiredTokens} expired</span>
+                  </div>
                 </div>
-                <div className="h-12 w-12 rounded-full bg-slate-500/10 flex items-center justify-center">
-                  <Key className="h-6 w-6 text-slate-700" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Active</p>
-                  <p className="text-2xl font-bold text-emerald-600 mt-1">{stats.active}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-700" />
+                <div className="h-12 w-12 rounded-full bg-violet-500/10 flex items-center justify-center">
+                  <Zap className="h-6 w-6 text-violet-700" />
                 </div>
               </div>
             </CardContent>
@@ -403,11 +861,12 @@ export default function TokenizationPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Inactive</p>
-                  <p className="text-2xl font-bold text-slate-600 mt-1">{stats.inactive}</p>
+                  <p className="text-sm font-medium text-slate-600">Total Revenue</p>
+                  <p className="text-2xl font-bold text-amber-600 mt-1">KES {stats.totalRevenue.toLocaleString()}</p>
+                  <p className="text-xs text-slate-500 mt-1">{stats.totalTransactions} transactions</p>
                 </div>
-                <div className="h-12 w-12 rounded-full bg-slate-500/10 flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-slate-700" />
+                <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-amber-700" />
                 </div>
               </div>
             </CardContent>
@@ -417,86 +876,193 @@ export default function TokenizationPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Expired</p>
-                  <p className="text-2xl font-bold text-rose-600 mt-1">{stats.expired}</p>
+                  <p className="text-sm font-medium text-slate-600">Active Rate</p>
+                  <p className="text-2xl font-bold text-indigo-600 mt-1">
+                    {stats.totalTokens > 0 ? Math.round((stats.activeTokens / stats.totalTokens) * 100) : 0}%
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Token activation rate</p>
                 </div>
-                <div className="h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-rose-700" />
+                <div className="h-12 w-12 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                  <BarChart3 className="h-6 w-6 text-indigo-700" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content */}
+        {/* Token Plans Section */}
         <Card>
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <CardTitle>Token Management</CardTitle>
-                <CardDescription>Create, update, and manage your API tokens</CardDescription>
+                <CardTitle>Token Plans</CardTitle>
+                <CardDescription>Create and manage token plans</CardDescription>
               </div>
-              <Button onClick={() => setIsCreateDialogOpen(true)} className="md:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Token
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => openCreateTokenDialog()} variant="outline" className="md:w-auto">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Create Token
+                </Button>
+                <Button onClick={() => setIsCreatePlanDialogOpen(true)} className="md:w-auto">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Plan
+                </Button>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search tokens by name, token, or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="API">API</SelectItem>
-                  <SelectItem value="Access">Access</SelectItem>
-                  <SelectItem value="Integration">Integration</SelectItem>
-                  <SelectItem value="Payment">Payment</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Tokens Table */}
+          <CardContent>
             <div className="border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Token</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Plan Name</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Features</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead>Expires</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {plans.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-2 text-slate-500">
+                          <Key className="h-12 w-12 opacity-20" />
+                          <p className="font-medium">No plans created yet</p>
+                          <p className="text-sm">Create your first token plan to get started</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    plans.map((plan) => (
+                      <TableRow key={plan.id}>
+                        <TableCell className="font-medium">
+                          <div>
+                            <p className="text-slate-900">{plan.name}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{plan.description}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{plan.formattedDuration}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {plan.features.slice(0, 2).map((feature, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {feature}
+                              </Badge>
+                            ))}
+                            {plan.features.length > 2 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{plan.features.length - 2} more
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getPlanStatusBadge(plan.isActive)}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600">
+                          {new Date(plan.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openCreateTokenDialog(plan)}
+                              className="text-emerald-600 hover:text-emerald-700"
+                            >
+                              <Sparkles className="h-4 w-4 mr-1" />
+                              Create Token
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditPlanDialog(plan)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => togglePlanStatus(plan)}
+                              className={plan.isActive ? "text-rose-600 hover:text-rose-700" : "text-emerald-600 hover:text-emerald-700"}
+                            >
+                              {plan.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeletePlanDialog(plan)}
+                              className="text-rose-600 hover:text-rose-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tokens Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle>All Tokens</CardTitle>
+                <CardDescription>Manage created tokens</CardDescription>
+              </div>
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search tokens..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-full md:w-[250px]"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="revoked">Revoked</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Token</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Transaction Limit</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Usage</TableHead>
+                    <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTokens.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12">
+                      <TableCell colSpan={8} className="text-center py-12">
                         <div className="flex flex-col items-center gap-2 text-slate-500">
                           <Key className="h-12 w-12 opacity-20" />
                           <p className="font-medium">No tokens found</p>
@@ -507,16 +1073,10 @@ export default function TokenizationPage() {
                   ) : (
                     filteredTokens.map((token) => (
                       <TableRow key={token.id}>
-                        <TableCell className="font-medium">
-                          <div>
-                            <p className="text-slate-900">{token.name}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{token.description}</p>
-                          </div>
-                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
-                              {maskToken(token.token, token.id)}
+                              {maskToken(token.tokenValue, token.id)}
                             </code>
                             <Button
                               variant="ghost"
@@ -534,25 +1094,43 @@ export default function TokenizationPage() {
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 p-0"
-                              onClick={() => copyToken(token.token)}
+                              onClick={() => copyToken(token.tokenValue)}
                             >
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </TableCell>
-                        <TableCell>{getTypeBadge(token.type)}</TableCell>
-                        <TableCell>{getStatusBadge(token.status)}</TableCell>
-                        <TableCell className="text-sm text-slate-600">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {token.createdAt}
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
+                            {token.plan.name}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {token.formattedPrice}
+                        </TableCell>
+                        <TableCell>
+                          {token.transactionLimit === 0 ? 'Unlimited' : token.transactionLimit.toLocaleString()}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(token.status, token.isActive)}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span>{token.transactionsUsed}/{token.transactionLimit === 0 ? '∞' : token.transactionLimit}</span>
+                              <span>{token.usagePercentage}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5">
+                              <div 
+                                className={`h-1.5 rounded-full ${
+                                  token.usagePercentage >= 90 ? 'bg-rose-500' :
+                                  token.usagePercentage >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
+                                }`}
+                                style={{ width: `${token.usagePercentage}%` }}
+                              ></div>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" />
-                            {token.expiresAt}
-                          </div>
+                          {new Date(token.createdAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -563,29 +1141,37 @@ export default function TokenizationPage() {
                             >
                               View
                             </Button>
-                            {token.status !== 'expired' && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleTokenStatus(token)}
-                                >
-                                  {token.status === 'active' ? 'Deactivate' : 'Activate'}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openEditDialog(token)}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                              </>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditTokenDialog(token)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            {token.isActive ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeactivateToken(token.id)}
+                                className="text-amber-600 hover:text-amber-700"
+                              >
+                                <Pause className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleActivateToken(token.id)}
+                                className="text-emerald-600 hover:text-emerald-700"
+                              >
+                                <Play className="h-4 w-4" />
+                              </Button>
                             )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => openDeleteDialog(token)}
-                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                              onClick={() => openDeleteTokenDialog(token)}
+                              className="text-rose-600 hover:text-rose-700"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -601,75 +1187,222 @@ export default function TokenizationPage() {
         </Card>
       </div>
 
-      {/* Create Token Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
+      {/* Create Plan Dialog */}
+      <Dialog open={isCreatePlanDialogOpen} onOpenChange={setIsCreatePlanDialogOpen}>
+        <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
-            <DialogTitle>Create New Token</DialogTitle>
+            <DialogTitle>Create Token Plan</DialogTitle>
             <DialogDescription>
-              Generate a new API token or access key for integrations
+              Create a new token plan for generating tokens
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Token Name *</Label>
+              <Label htmlFor="name">Plan Name *</Label>
               <Input
                 id="name"
-                placeholder="e.g., Payment Gateway API"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., 7-Day Free Trial"
+                value={planFormData.name}
+                onChange={(e) => setPlanFormData({ ...planFormData, name: e.target.value })}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="type">Token Type *</Label>
-              <Select 
-                value={formData.type} 
-                onValueChange={(value) => setFormData({ ...formData, type: value as Token['type'] })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="API">API</SelectItem>
-                  <SelectItem value="Access">Access</SelectItem>
-                  <SelectItem value="Integration">Integration</SelectItem>
-                  <SelectItem value="Payment">Payment</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="Brief description of token usage"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe what this plan includes"
+                value={planFormData.description}
+                onChange={(e) => setPlanFormData({ ...planFormData, description: e.target.value })}
                 rows={3}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expiresAt">Expiration Date *</Label>
+              <Label htmlFor="duration">Duration (days) *</Label>
               <Input
-                id="expiresAt"
-                type="date"
-                value={formData.expiresAt}
-                onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
-                min={new Date().toISOString().split('T')[0]}
+                id="duration"
+                type="number"
+                min="1"
+                value={planFormData.duration}
+                onChange={(e) => setPlanFormData({ ...planFormData, duration: parseInt(e.target.value) || 0 })}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsCreatePlanDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate}>Create Token</Button>
+            <Button onClick={handleCreatePlan}>Create Plan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Plan Dialog */}
+      <Dialog open={isEditPlanDialogOpen} onOpenChange={setIsEditPlanDialogOpen}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Edit Token Plan</DialogTitle>
+            <DialogDescription>
+              Update plan details and configuration
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Plan Name *</Label>
+              <Input
+                id="edit-name"
+                placeholder="e.g., 7-Day Free Trial"
+                value={planFormData.name}
+                onChange={(e) => setPlanFormData({ ...planFormData, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                placeholder="Describe what this plan includes"
+                value={planFormData.description}
+                onChange={(e) => setPlanFormData({ ...planFormData, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-duration">Duration (days) *</Label>
+              <Input
+                id="edit-duration"
+                type="number"
+                min="1"
+                value={planFormData.duration}
+                onChange={(e) => setPlanFormData({ ...planFormData, duration: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditPlanDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdatePlan}>Update Plan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Plan Confirmation Dialog */}
+      <Dialog open={isDeletePlanDialogOpen} onOpenChange={setIsDeletePlanDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Plan</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the plan "{selectedPlan?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeletePlanDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeletePlan}>
+              Delete Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Token Dialog */}
+      <Dialog open={isCreateTokenDialogOpen} onOpenChange={setIsCreateTokenDialogOpen}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Create Token</DialogTitle>
+            <DialogDescription>
+              Create a new token from an existing plan
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="plan">Select Plan *</Label>
+              <Select value={tokenFormData.planId} onValueChange={(value) => setTokenFormData({ ...tokenFormData, planId: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.filter(plan => plan.isActive).map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name} - {plan.formattedDuration}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (KES)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={tokenFormData.price}
+                  onChange={(e) => setTokenFormData({ ...tokenFormData, price: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="transactionLimit">Transaction Limit</Label>
+                <Input
+                  id="transactionLimit"
+                  type="number"
+                  min="0"
+                  placeholder="0 for unlimited"
+                  value={tokenFormData.transactionLimit}
+                  onChange={(e) => setTokenFormData({ ...tokenFormData, transactionLimit: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="revenueLimit">Revenue Limit (KES)</Label>
+              <Input
+                id="revenueLimit"
+                type="number"
+                min="0"
+                placeholder="0 for unlimited"
+                value={tokenFormData.revenueLimit}
+                onChange={(e) => setTokenFormData({ ...tokenFormData, revenueLimit: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+
+            {tokenFormData.planId && (
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-slate-700">Selected Plan Details:</p>
+                {(() => {
+                  const selectedPlan = plans.find(p => p.id === tokenFormData.planId);
+                  return selectedPlan ? (
+                    <div className="text-sm text-slate-600 mt-1">
+                      <p>• Name: {selectedPlan.name}</p>
+                      <p>• Duration: {selectedPlan.formattedDuration}</p>
+                      <p>• Description: {selectedPlan.description}</p>
+                      <p>• Features: {selectedPlan.features.join(', ') || 'None'}</p>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateTokenDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateToken} 
+              disabled={!tokenFormData.planId}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Create Token
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Token Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+      <Dialog open={isEditTokenDialogOpen} onOpenChange={setIsEditTokenDialogOpen}>
+        <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Edit Token</DialogTitle>
             <DialogDescription>
@@ -677,65 +1410,87 @@ export default function TokenizationPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-price">Price (KES)</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={editTokenFormData.price}
+                  onChange={(e) => setEditTokenFormData({ ...editTokenFormData, price: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-transactionLimit">Transaction Limit</Label>
+                <Input
+                  id="edit-transactionLimit"
+                  type="number"
+                  min="0"
+                  placeholder="0 for unlimited"
+                  value={editTokenFormData.transactionLimit}
+                  onChange={(e) => setEditTokenFormData({ ...editTokenFormData, transactionLimit: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Token Name *</Label>
+              <Label htmlFor="edit-revenueLimit">Revenue Limit (KES)</Label>
               <Input
-                id="edit-name"
-                placeholder="e.g., Payment Gateway API"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                id="edit-revenueLimit"
+                type="number"
+                min="0"
+                placeholder="0 for unlimited"
+                value={editTokenFormData.revenueLimit}
+                onChange={(e) => setEditTokenFormData({ ...editTokenFormData, revenueLimit: parseInt(e.target.value) || 0 })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-type">Token Type *</Label>
-              <Select 
-                value={formData.type} 
-                onValueChange={(value) => setFormData({ ...formData, type: value as Token['type'] })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="API">API</SelectItem>
-                  <SelectItem value="Access">Access</SelectItem>
-                  <SelectItem value="Integration">Integration</SelectItem>
-                  <SelectItem value="Payment">Payment</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                placeholder="Brief description of token usage"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-expiresAt">Expiration Date *</Label>
-              <Input
-                id="edit-expiresAt"
-                type="date"
-                value={formData.expiresAt}
-                onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
+
+            {selectedToken && (
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-slate-700">Current Token Details:</p>
+                <div className="text-sm text-slate-600 mt-1">
+                  <p>• Plan: {selectedToken.plan.name}</p>
+                  <p>• Current Price: {selectedToken.formattedPrice}</p>
+                  <p>• Current Transaction Limit: {selectedToken.transactionLimit === 0 ? 'Unlimited' : selectedToken.transactionLimit}</p>
+                  <p>• Current Revenue Limit: {selectedToken.revenueLimit === 0 ? 'Unlimited' : `KES ${(selectedToken.revenueLimit / 100).toLocaleString()}`}</p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsEditTokenDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdate}>Update Token</Button>
+            <Button onClick={handleUpdateToken}>Update Token</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Token Confirmation Dialog */}
+      <Dialog open={isDeleteTokenDialogOpen} onOpenChange={setIsDeleteTokenDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Token</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this token? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteTokenDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteToken}>
+              Delete Token
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* View Token Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Token Details</DialogTitle>
             <DialogDescription>
@@ -745,19 +1500,15 @@ export default function TokenizationPage() {
           {selectedToken && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label className="text-slate-600">Name</Label>
-                <p className="font-medium">{selectedToken.name}</p>
-              </div>
-              <div className="space-y-2">
                 <Label className="text-slate-600">Token</Label>
                 <div className="flex items-center gap-2">
                   <code className="text-xs bg-slate-100 px-3 py-2 rounded font-mono flex-1 break-all">
-                    {selectedToken.token}
+                    {selectedToken.tokenValue}
                   </code>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToken(selectedToken.token)}
+                    onClick={() => copyToken(selectedToken.tokenValue)}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -765,43 +1516,51 @@ export default function TokenizationPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-600">Type</Label>
-                  <div>{getTypeBadge(selectedToken.type)}</div>
+                  <Label className="text-slate-600">Plan</Label>
+                  <p className="font-medium">{selectedToken.plan.name}</p>
+                  <p className="text-sm text-slate-500">{selectedToken.plan.description}</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-600">Status</Label>
-                  <div>{getStatusBadge(selectedToken.status)}</div>
+                  <div>{getStatusBadge(selectedToken.status, selectedToken.isActive)}</div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-600">Description</Label>
-                <p className="text-sm">{selectedToken.description || 'No description provided'}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-600">Price</Label>
+                  <p className="font-medium">{selectedToken.formattedPrice}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-600">Transaction Limit</Label>
+                  <p className="font-medium">
+                    {selectedToken.transactionLimit === 0 ? 'Unlimited' : selectedToken.transactionLimit.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-600">Usage</Label>
+                  <p className="text-sm">
+                    {selectedToken.transactionsUsed} / {selectedToken.transactionLimit === 0 ? 'Unlimited' : selectedToken.transactionLimit} transactions
+                  </p>
+                  <p className="text-sm text-slate-500">{selectedToken.usagePercentage}% used</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-600">Revenue Limit</Label>
+                  <p className="font-medium">
+                    {selectedToken.revenueLimit === 0 ? 'Unlimited' : `KES ${(selectedToken.revenueLimit / 100).toLocaleString()}`}
+                  </p>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-slate-600">Created</Label>
-                  <p className="text-sm">{selectedToken.createdAt}</p>
+                  <p className="text-sm">{new Date(selectedToken.createdAt).toLocaleDateString()}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-600">Expires</Label>
-                  <p className="text-sm">{selectedToken.expiresAt}</p>
+                  <Label className="text-slate-600">Days Remaining</Label>
+                  <p className="text-sm font-medium">{selectedToken.daysRemaining || 'N/A'} days</p>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-slate-600">Created By</Label>
-                <p className="text-sm">{selectedToken.createdBy}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-600">Usage Count</Label>
-                  <p className="text-sm font-medium">{selectedToken.usageCount.toLocaleString()} requests</p>
-                </div>
-                {selectedToken.lastUsed && (
-                  <div className="space-y-2">
-                    <Label className="text-slate-600">Last Used</Label>
-                    <p className="text-sm">{selectedToken.lastUsed}</p>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -810,28 +1569,6 @@ export default function TokenizationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Token?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{selectedToken?.name}"? This action cannot be undone
-              and will immediately invalidate the token across all systems.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-rose-600 hover:bg-rose-700"
-            >
-              Delete Token
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DashboardLayout>
   );
 }

@@ -22,7 +22,8 @@ import {
   XCircle,
   Store,
   Users,
-  DollarSign
+  DollarSign,
+  RefreshCw
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -66,203 +67,134 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 
+// Updated interface to match API response
 interface Business {
   id: string;
-  name: string;
-  type: string;
-  merchant: {
+  businessName: string;
+  shortCode: string;
+  businessType: string;
+  industry: string;
+  contactEmail: string;
+  contactPhone: string;
+  isActive: boolean;
+  owner: {
     id: string;
-    name: string;
+    fullName: string;
     email: string;
+    phoneNumber: string;
   };
-  status: 'active' | 'inactive';
-  location: string;
-  phone: string;
-  email: string;
-  registrationDate: string;
-  revenue: number;
-  transactions: number;
-  description: string;
+  createdAt: string;
+  updatedAt: string;
+  location?: {
+    address?: string;
+    city?: string;
+    country?: string;
+  };
 }
 
-// Mock data
-const mockBusinesses: Business[] = [
-  {
-    id: 'BUS001',
-    name: 'Green Valley Cafe',
-    type: 'Restaurant',
-    merchant: {
-      id: 'MER001',
-      name: 'Sarah Johnson',
-      email: 'sarah@greenvalley.com'
-    },
-    status: 'active',
-    location: 'Lagos, Nigeria',
-    phone: '+234 801 234 5678',
-    email: 'contact@greenvalley.com',
-    registrationDate: '2024-01-15',
-    revenue: 2500000,
-    transactions: 1250,
-    description: 'A cozy cafe serving organic coffee and healthy meals in the heart of Lagos.'
-  },
-  {
-    id: 'BUS002',
-    name: 'TechGear Electronics',
-    type: 'Retail',
-    merchant: {
-      id: 'MER002',
-      name: 'Michael Chen',
-      email: 'michael@techgear.com'
-    },
-    status: 'active',
-    location: 'Abuja, Nigeria',
-    phone: '+234 802 345 6789',
-    email: 'info@techgear.com',
-    registrationDate: '2024-02-20',
-    revenue: 5800000,
-    transactions: 890,
-    description: 'Leading electronics retailer specializing in smartphones, laptops, and accessories.'
-  },
-  {
-    id: 'BUS003',
-    name: 'Fashion Hub Boutique',
-    type: 'Fashion',
-    merchant: {
-      id: 'MER003',
-      name: 'Amara Okafor',
-      email: 'amara@fashionhub.com'
-    },
-    status: 'inactive',
-    location: 'Port Harcourt, Nigeria',
-    phone: '+234 803 456 7890',
-    email: 'hello@fashionhub.com',
-    registrationDate: '2023-11-10',
-    revenue: 1200000,
-    transactions: 450,
-    description: 'Trendy fashion boutique offering the latest styles and accessories for modern professionals.'
-  },
-  {
-    id: 'BUS004',
-    name: 'QuickFix Auto Services',
-    type: 'Automotive',
-    merchant: {
-      id: 'MER004',
-      name: 'David Adeyemi',
-      email: 'david@quickfix.com'
-    },
-    status: 'active',
-    location: 'Ibadan, Nigeria',
-    phone: '+234 804 567 8901',
-    email: 'service@quickfix.com',
-    registrationDate: '2024-03-05',
-    revenue: 3400000,
-    transactions: 680,
-    description: 'Professional auto repair and maintenance services with certified technicians.'
-  },
-  {
-    id: 'BUS005',
-    name: 'FreshMart Groceries',
-    type: 'Grocery',
-    merchant: {
-      id: 'MER005',
-      name: 'Grace Nwosu',
-      email: 'grace@freshmart.com'
-    },
-    status: 'active',
-    location: 'Enugu, Nigeria',
-    phone: '+234 805 678 9012',
-    email: 'support@freshmart.com',
-    registrationDate: '2024-01-28',
-    revenue: 4200000,
-    transactions: 2100,
-    description: 'Your neighborhood grocery store offering fresh produce and daily essentials.'
-  },
-  {
-    id: 'BUS006',
-    name: 'Elite Fitness Center',
-    type: 'Fitness',
-    merchant: {
-      id: 'MER006',
-      name: 'John Eze',
-      email: 'john@elitefitness.com'
-    },
-    status: 'inactive',
-    location: 'Lagos, Nigeria',
-    phone: '+234 806 789 0123',
-    email: 'info@elitefitness.com',
-    registrationDate: '2023-12-12',
-    revenue: 1800000,
-    transactions: 320,
-    description: 'Modern fitness center with state-of-the-art equipment and professional trainers.'
-  },
-  {
-    id: 'BUS007',
-    name: 'BookWorm Library Cafe',
-    type: 'Entertainment',
-    merchant: {
-      id: 'MER007',
-      name: 'Chioma Okeke',
-      email: 'chioma@bookworm.com'
-    },
-    status: 'active',
-    location: 'Lagos, Nigeria',
-    phone: '+234 807 890 1234',
-    email: 'hello@bookworm.com',
-    registrationDate: '2024-02-14',
-    revenue: 980000,
-    transactions: 540,
-    description: 'A unique combination of bookstore and cafe, perfect for readers and coffee lovers.'
-  },
-  {
-    id: 'BUS008',
-    name: 'Urban Beauty Salon',
-    type: 'Beauty & Wellness',
-    merchant: {
-      id: 'MER008',
-      name: 'Fatima Bello',
-      email: 'fatima@urbanbeauty.com'
-    },
-    status: 'active',
-    location: 'Kano, Nigeria',
-    phone: '+234 808 901 2345',
-    email: 'booking@urbanbeauty.com',
-    registrationDate: '2024-01-20',
-    revenue: 1650000,
-    transactions: 780,
-    description: 'Premium beauty salon offering hair styling, makeup, and wellness treatments.'
-  }
-];
+interface ApiResponse {
+  success: boolean;
+  data: Business[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
 
 export default function BusinessesPage() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user, token } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [businesses, setBusinesses] = useState<Business[]>(mockBusinesses);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [businessToDelete, setBusinessToDelete] = useState<Business | null>(null);
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
+  const [businessToActivate, setBusinessToActivate] = useState<Business | null>(null);
+  const [adminSecretKey, setAdminSecretKey] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
+    } else {
+      fetchBusinesses();
     }
   }, [isAuthenticated, navigate]);
+
+  const fetchBusinesses = async () => {
+    try {
+      setLoading(true);
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('https://tillflow-backend.onrender.com/api/business/admin/all?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast({
+            title: 'Authentication Error',
+            description: 'Please login again',
+            variant: 'destructive',
+          });
+          navigate('/login');
+          return;
+        }
+        throw new Error(`Failed to fetch businesses: ${response.status}`);
+      }
+
+      const data: ApiResponse = await response.json();
+      
+      if (data.success) {
+        setBusinesses(data.data);
+      } else {
+        throw new Error(data.message || 'Failed to fetch businesses');
+      }
+    } catch (error) {
+      console.error('Error fetching businesses:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to load businesses',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchBusinesses();
+  };
 
   // Filter businesses
   const filteredBusinesses = businesses.filter((business) => {
     const matchesSearch =
-      business.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      business.merchant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      business.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      business.type.toLowerCase().includes(searchQuery.toLowerCase());
+      business.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      business.owner.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (business.location?.city?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      business.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      business.shortCode.includes(searchQuery);
 
-    const matchesStatus = statusFilter === 'all' || business.status === statusFilter;
-    const matchesType = typeFilter === 'all' || business.type === typeFilter;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && business.isActive) ||
+      (statusFilter === 'inactive' && !business.isActive);
+
+    const matchesType = typeFilter === 'all' || business.industry === typeFilter;
 
     return matchesSearch && matchesStatus && matchesType;
   });
@@ -270,25 +202,68 @@ export default function BusinessesPage() {
   // Calculate statistics
   const stats = {
     total: businesses.length,
-    active: businesses.filter((b) => b.status === 'active').length,
-    inactive: businesses.filter((b) => b.status === 'inactive').length,
-    totalRevenue: businesses.reduce((sum, b) => sum + b.revenue, 0),
+    active: businesses.filter((b) => b.isActive).length,
+    inactive: businesses.filter((b) => !b.isActive).length,
   };
 
-  // Get unique business types
-  const businessTypes = Array.from(new Set(businesses.map((b) => b.type)));
+  // Get unique business industries
+  const businessIndustries = Array.from(new Set(businesses.map((b) => b.industry)));
 
-  const handleToggleStatus = (business: Business) => {
-    const newStatus = business.status === 'active' ? 'inactive' : 'active';
-    setBusinesses(
-      businesses.map((b) =>
-        b.id === business.id ? { ...b, status: newStatus } : b
-      )
-    );
-    toast({
-      title: 'Status Updated',
-      description: `${business.name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.`,
-    });
+  const handleActivateBusiness = async (business: Business) => {
+    setBusinessToActivate(business);
+    setActivateDialogOpen(true);
+  };
+
+  const handleActivateConfirm = async () => {
+    if (!businessToActivate || !token) return;
+
+    try {
+      const response = await fetch(
+        `https://tillflow-backend.onrender.com/api/business/admin/activate/${businessToActivate.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ownerEmail: businessToActivate.owner.email,
+            adminSecretKey: adminSecretKey,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `Failed to activate business: ${response.status}`);
+      }
+
+      if (data.success) {
+        // Update local state
+        setBusinesses(businesses.map(b => 
+          b.id === businessToActivate.id ? { ...b, isActive: true } : b
+        ));
+        
+        toast({
+          title: 'Business Activated',
+          description: `${businessToActivate.businessName} has been activated successfully.`,
+        });
+        
+        setActivateDialogOpen(false);
+        setAdminSecretKey('');
+        setBusinessToActivate(null);
+      } else {
+        throw new Error(data.message || 'Failed to activate business');
+      }
+    } catch (error) {
+      console.error('Error activating business:', error);
+      toast({
+        title: 'Activation Failed',
+        description: error instanceof Error ? error.message : 'Failed to activate business',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleViewDetails = (business: Business) => {
@@ -296,53 +271,54 @@ export default function BusinessesPage() {
     setIsDetailsOpen(true);
   };
 
-  const handleDeleteClick = (business: Business) => {
-    setBusinessToDelete(business);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (businessToDelete) {
-      setBusinesses(businesses.filter((b) => b.id !== businessToDelete.id));
-      toast({
-        title: 'Business Deleted',
-        description: `${businessToDelete.name} has been removed from the system.`,
-        variant: 'destructive',
-      });
-      setBusinessToDelete(null);
-      setDeleteDialogOpen(false);
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
+
+  const getLocationString = (business: Business) => {
+    if (!business.location) return 'N/A';
+    const { city, country } = business.location;
+    return [city, country].filter(Boolean).join(', ') || 'N/A';
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading businesses...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Business Management</h1>
-          <p className="text-muted-foreground mt-1">
-            View and manage all merchant businesses on the platform
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Business Management</h1>
+            <p className="text-muted-foreground mt-1">
+              View and manage all merchant businesses on the platform
+            </p>
+          </div>
+          <Button onClick={handleRefresh} disabled={refreshing} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Businesses</CardTitle>
@@ -351,7 +327,7 @@ export default function BusinessesPage() {
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                Registered merchants
+                Registered businesses
               </p>
             </CardContent>
           </Card>
@@ -377,20 +353,7 @@ export default function BusinessesPage() {
             <CardContent>
               <div className="text-2xl font-bold">{stats.inactive}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                Temporarily closed
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Platform-wide
+                Temporarily deactivated
               </p>
             </CardContent>
           </Card>
@@ -415,7 +378,7 @@ export default function BusinessesPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search by business name, merchant, location, or type..."
+                    placeholder="Search by business name, merchant, location, industry, or shortcode..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
@@ -437,13 +400,13 @@ export default function BusinessesPage() {
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger className="w-[160px]">
                       <Building2 className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Type" />
+                      <SelectValue placeholder="Industry" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      {businessTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
+                      <SelectItem value="all">All Industries</SelectItem>
+                      {businessIndustries.map((industry) => (
+                        <SelectItem key={industry} value={industry}>
+                          {industry}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -458,17 +421,18 @@ export default function BusinessesPage() {
                     <TableRow>
                       <TableHead>Business</TableHead>
                       <TableHead>Merchant</TableHead>
+                      <TableHead>Industry</TableHead>
+                      <TableHead>Short Code</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>Location</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Revenue</TableHead>
+                      <TableHead>Registered</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredBusinesses.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8">
+                        <TableCell colSpan={8} className="text-center py-8">
                           <div className="flex flex-col items-center justify-center text-muted-foreground">
                             <Store className="h-12 w-12 mb-2 opacity-50" />
                             <p className="font-medium">No businesses found</p>
@@ -485,48 +449,47 @@ export default function BusinessesPage() {
                                 <Building2 className="h-5 w-5 text-primary" />
                               </div>
                               <div>
-                                <div className="font-medium">{business.name}</div>
+                                <div className="font-medium">{business.businessName}</div>
                                 <div className="text-sm text-muted-foreground">
-                                  ID: {business.id}
+                                  {business.contactEmail}
                                 </div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div>
-                              <div className="font-medium">{business.merchant.name}</div>
+                              <div className="font-medium">{business.owner.fullName}</div>
                               <div className="text-sm text-muted-foreground">
-                                {business.merchant.email}
+                                {business.owner.email}
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">{business.type}</Badge>
+                            <Badge variant="outline">{business.industry}</Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1 text-sm">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              {business.location}
-                            </div>
+                            <code className="px-2 py-1 bg-muted rounded text-sm">
+                              {business.shortCode}
+                            </code>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{business.businessType}</Badge>
                           </TableCell>
                           <TableCell>
                             <Badge
-                              variant={business.status === 'active' ? 'default' : 'secondary'}
+                              variant={business.isActive ? 'default' : 'secondary'}
                               className={
-                                business.status === 'active'
+                                business.isActive
                                   ? 'bg-green-600 hover:bg-green-700'
                                   : 'bg-orange-600 hover:bg-orange-700'
                               }
                             >
-                              {business.status === 'active' ? 'Active' : 'Inactive'}
+                              {business.isActive ? 'Active' : 'Inactive'}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div>
-                              <div className="font-medium">{formatCurrency(business.revenue)}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {business.transactions} transactions
-                              </div>
+                            <div className="text-sm text-muted-foreground">
+                              {formatDate(business.createdAt)}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -543,18 +506,12 @@ export default function BusinessesPage() {
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleToggleStatus(business)}>
-                                  <Power className="mr-2 h-4 w-4" />
-                                  {business.status === 'active' ? 'Deactivate' : 'Activate'}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteClick(business)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete Business
-                                </DropdownMenuItem>
+                                {!business.isActive && (
+                                  <DropdownMenuItem onClick={() => handleActivateBusiness(business)}>
+                                    <Power className="mr-2 h-4 w-4" />
+                                    Activate Business
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -586,21 +543,19 @@ export default function BusinessesPage() {
                   <Building2 className="h-8 w-8 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold">{selectedBusiness.name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedBusiness.description}
-                  </p>
+                  <h3 className="text-xl font-semibold">{selectedBusiness.businessName}</h3>
                   <div className="flex gap-2 mt-2">
-                    <Badge variant="outline">{selectedBusiness.type}</Badge>
+                    <Badge variant="outline">{selectedBusiness.industry}</Badge>
+                    <Badge variant="secondary">{selectedBusiness.businessType}</Badge>
                     <Badge
-                      variant={selectedBusiness.status === 'active' ? 'default' : 'secondary'}
+                      variant={selectedBusiness.isActive ? 'default' : 'secondary'}
                       className={
-                        selectedBusiness.status === 'active'
+                        selectedBusiness.isActive
                           ? 'bg-green-600 hover:bg-green-700'
                           : 'bg-orange-600 hover:bg-orange-700'
                       }
                     >
-                      {selectedBusiness.status === 'active' ? 'Active' : 'Inactive'}
+                      {selectedBusiness.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
                 </div>
@@ -624,14 +579,22 @@ export default function BusinessesPage() {
                       <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-xs text-muted-foreground">Location</p>
-                        <p className="font-medium">{selectedBusiness.location}</p>
+                        <p className="font-medium">{getLocationString(selectedBusiness)}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Registration Date</p>
-                        <p className="font-medium">{formatDate(selectedBusiness.registrationDate)}</p>
+                        <p className="text-xs text-muted-foreground">Registered Date</p>
+                        <p className="font-medium">{formatDate(selectedBusiness.createdAt)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Short Code</p>
+                        <code className="font-medium bg-muted px-2 py-1 rounded">
+                          {selectedBusiness.shortCode}
+                        </code>
                       </div>
                     </div>
                   </div>
@@ -646,14 +609,21 @@ export default function BusinessesPage() {
                       <Users className="h-4 w-4 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-xs text-muted-foreground">Merchant Name</p>
-                        <p className="font-medium">{selectedBusiness.merchant.name}</p>
+                        <p className="font-medium">{selectedBusiness.owner.fullName}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-xs text-muted-foreground">Merchant Email</p>
-                        <p className="font-medium">{selectedBusiness.merchant.email}</p>
+                        <p className="font-medium">{selectedBusiness.owner.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Merchant Phone</p>
+                        <p className="font-medium">{selectedBusiness.owner.phoneNumber}</p>
                       </div>
                     </div>
                   </div>
@@ -669,96 +639,87 @@ export default function BusinessesPage() {
                   <div className="flex items-start gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
                     <div>
-                      <p className="text-xs text-muted-foreground">Phone Number</p>
-                      <p className="font-medium">{selectedBusiness.phone}</p>
+                      <p className="text-xs text-muted-foreground">Business Phone</p>
+                      <p className="font-medium">{selectedBusiness.contactPhone}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="text-xs text-muted-foreground">Business Email</p>
-                      <p className="font-medium">{selectedBusiness.email}</p>
+                      <p className="font-medium">{selectedBusiness.contactEmail}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Performance Metrics */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-                  Performance Metrics
-                </h4>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Revenue</p>
-                          <p className="text-2xl font-bold">{formatCurrency(selectedBusiness.revenue)}</p>
-                        </div>
-                        <DollarSign className="h-8 w-8 text-green-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Transactions</p>
-                          <p className="text-2xl font-bold">{selectedBusiness.transactions}</p>
-                        </div>
-                        <Users className="h-8 w-8 text-blue-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4 border-t">
-                <Button
-                  onClick={() => handleToggleStatus(selectedBusiness)}
-                  variant={selectedBusiness.status === 'active' ? 'outline' : 'default'}
-                  className="flex-1"
-                >
-                  <Power className="mr-2 h-4 w-4" />
-                  {selectedBusiness.status === 'active' ? 'Deactivate' : 'Activate'} Business
-                </Button>
-                <Button
-                  onClick={() => {
-                    handleDeleteClick(selectedBusiness);
-                    setIsDetailsOpen(false);
-                  }}
-                  variant="destructive"
-                  className="flex-1"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Business
-                </Button>
-              </div>
+              {!selectedBusiness.isActive && (
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button
+                    onClick={() => handleActivateBusiness(selectedBusiness)}
+                    className="flex-1"
+                  >
+                    <Power className="mr-2 h-4 w-4" />
+                    Activate Business
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      {/* Activate Business Dialog */}
+      <AlertDialog open={activateDialogOpen} onOpenChange={setActivateDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Activate Business</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete{' '}
-              <span className="font-semibold">{businessToDelete?.name}</span> and remove all
-              associated data from the system.
+              You are about to activate <span className="font-semibold">{businessToActivate?.businessName}</span>.
+              Please confirm the owner's email and provide the admin secret key to proceed.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium">Owner Email</label>
+              <Input
+                value={businessToActivate?.owner.email || ''}
+                disabled
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This email must match the business owner's registered email
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Admin Secret Key</label>
+              <Input
+                type="password"
+                value={adminSecretKey}
+                onChange={(e) => setAdminSecretKey(e.target.value)}
+                placeholder="Enter admin secret key"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Required for security verification
+              </p>
+            </div>
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <AlertDialogCancel 
+              onClick={() => {
+                setAdminSecretKey('');
+                setBusinessToActivate(null);
+              }}
             >
-              Delete Business
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleActivateConfirm}
+              disabled={!adminSecretKey}
+            >
+              Activate Business
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
