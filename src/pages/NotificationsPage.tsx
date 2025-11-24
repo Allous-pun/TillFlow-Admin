@@ -11,8 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Bell, Send, AlertCircle, Info, AlertTriangle, CheckCircle, Search, Trash2, Eye } from 'lucide-react';
+import { Bell, Send, AlertCircle, Info, AlertTriangle, CheckCircle, Search, Trash2, Eye, Play, Edit2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+interface NotificationAction {
+  text: string;
+  url: string;
+  type: 'primary' | 'secondary';
+  _id?: string;
+  id?: string;
+}
 
 interface Notification {
   id: string;
@@ -20,89 +28,51 @@ interface Notification {
   message: string;
   type: 'maintenance' | 'announcement' | 'alert' | 'info';
   priority: 'low' | 'medium' | 'high' | 'critical';
-  targetAudience: 'all' | 'merchants' | 'admins';
-  status: 'draft' | 'sent' | 'scheduled';
+  audience: 'all' | 'merchants' | 'admins';
+  isActive: boolean;
   scheduledFor?: string;
-  sentAt?: string;
-  sentBy: string;
-  recipients: number;
+  expiresAt?: string;
+  status: 'draft' | 'sent' | 'scheduled';
+  actions: NotificationAction[];
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  targetBusinesses: any[];
+  isUnread?: boolean | null;
   readCount: number;
+  recipients?: number;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: 'notif-1',
-    title: 'Scheduled System Maintenance',
-    message: 'We will be performing system maintenance on January 15, 2025, from 2:00 AM to 4:00 AM UTC. Some services may be temporarily unavailable during this time.',
-    type: 'maintenance',
-    priority: 'high',
-    targetAudience: 'all',
-    status: 'sent',
-    sentAt: '2025-01-10T10:30:00',
-    sentBy: 'Admin Support',
-    recipients: 1247,
-    readCount: 1089
-  },
-  {
-    id: 'notif-2',
-    title: 'New Feature: Multi-Currency Support',
-    message: 'Exciting news! We have launched multi-currency support. Merchants can now accept payments in USD, EUR, GBP, and more. Check your dashboard to configure your preferred currencies.',
-    type: 'announcement',
-    priority: 'medium',
-    targetAudience: 'merchants',
-    status: 'sent',
-    sentAt: '2025-01-08T14:15:00',
-    sentBy: 'Product Team',
-    recipients: 986,
-    readCount: 823
-  },
-  {
-    id: 'notif-3',
-    title: 'Security Alert: Password Policy Update',
-    message: 'To enhance security, we have updated our password policy. All users are required to update their passwords to meet the new requirements within 7 days.',
-    type: 'alert',
-    priority: 'critical',
-    targetAudience: 'all',
-    status: 'sent',
-    sentAt: '2025-01-05T09:00:00',
-    sentBy: 'Security Team',
-    recipients: 1247,
-    readCount: 1201
-  },
-  {
-    id: 'notif-4',
-    title: 'Q1 Platform Updates',
-    message: 'Get ready for exciting updates coming in Q1 2025, including enhanced analytics, improved mobile app, and new payment methods.',
-    type: 'info',
-    priority: 'low',
-    targetAudience: 'all',
-    status: 'scheduled',
-    scheduledFor: '2025-01-20T08:00:00',
-    sentBy: 'Marketing Team',
-    recipients: 1247,
-    readCount: 0
-  },
-  {
-    id: 'notif-5',
-    title: 'API Rate Limit Increase',
-    message: 'Good news for developers! We have increased API rate limits by 50% to support growing businesses. No action needed on your part.',
-    type: 'announcement',
-    priority: 'medium',
-    targetAudience: 'merchants',
-    status: 'sent',
-    sentAt: '2025-01-03T11:45:00',
-    sentBy: 'Technical Team',
-    recipients: 986,
-    readCount: 654
-  }
-];
+interface NotificationStats {
+  total: number;
+  sent: number;
+  scheduled: number;
+  draft: number;
+  totalRecipients: number;
+  totalReads: number;
+  readRate: number;
+}
 
 export default function NotificationsPage() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, token } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [stats, setStats] = useState<NotificationStats>({
+    total: 0,
+    sent: 0,
+    scheduled: 0,
+    draft: 0,
+    totalRecipients: 0,
+    totalReads: 0,
+    readRate: 0
+  });
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -110,6 +80,7 @@ export default function NotificationsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
 
   const [newNotification, setNewNotification] = useState({
@@ -117,15 +88,129 @@ export default function NotificationsPage() {
     message: '',
     type: 'announcement' as Notification['type'],
     priority: 'medium' as Notification['priority'],
-    targetAudience: 'all' as Notification['targetAudience'],
-    scheduledFor: ''
+    audience: 'all' as Notification['audience'],
+    scheduledFor: '',
+    actions: [] as NotificationAction[]
+  });
+
+  const [editNotification, setEditNotification] = useState({
+    title: '',
+    message: '',
+    type: 'announcement' as Notification['type'],
+    priority: 'medium' as Notification['priority'],
+    audience: 'all' as Notification['audience'],
+    scheduledFor: '',
+    actions: [] as NotificationAction[]
   });
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
+      return;
     }
+    fetchData();
   }, [isAuthenticated, navigate]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const notificationsData = await fetchNotifications();
+      await fetchStats(notificationsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchNotifications = async (): Promise<Notification[]> => {
+    try {
+      const response = await fetch('https://tillflow-backend.onrender.com/api/notifications/admin/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        const notificationsData = data.notifications || [];
+        setNotifications(notificationsData);
+        return notificationsData;
+      } else {
+        throw new Error(data.message || 'Failed to fetch notifications');
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch notifications",
+        variant: "destructive"
+      });
+      setNotifications([]);
+      return [];
+    }
+  };
+
+  const fetchStats = async (notificationsData: Notification[]) => {
+    try {
+      const response = await fetch('https://tillflow-backend.onrender.com/api/notifications/admin/notifications/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        // If stats endpoint doesn't exist, calculate from notifications
+        console.warn('Stats endpoint not available, calculating from notifications');
+        calculateStatsFromNotifications(notificationsData);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setStats(data.stats);
+      } else {
+        calculateStatsFromNotifications(notificationsData);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      calculateStatsFromNotifications(notificationsData);
+    }
+  };
+
+  const calculateStatsFromNotifications = (notificationsData: Notification[]) => {
+    const total = notificationsData.length;
+    const sent = notificationsData.filter(n => n.status === 'sent').length;
+    const scheduled = notificationsData.filter(n => n.status === 'scheduled').length;
+    const draft = notificationsData.filter(n => n.status === 'draft').length;
+    const totalReads = notificationsData.reduce((sum, n) => sum + (n.readCount || 0), 0);
+    const totalRecipients = notificationsData.reduce((sum, n) => {
+      if (n.audience === 'all') return sum + 1247; // Estimated user counts
+      if (n.audience === 'merchants') return sum + 986;
+      return sum + 261; // admins
+    }, 0);
+
+    setStats({
+      total,
+      sent,
+      scheduled,
+      draft,
+      totalRecipients,
+      totalReads,
+      readRate: totalRecipients > 0 ? (totalReads / totalRecipients) * 100 : 0
+    });
+  };
 
   const filteredNotifications = notifications.filter((notif) => {
     const matchesSearch = notif.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -135,7 +220,7 @@ export default function NotificationsPage() {
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const handleCreateNotification = () => {
+  const handleCreateNotification = async () => {
     if (!newNotification.title || !newNotification.message) {
       toast({
         title: "Validation Error",
@@ -145,44 +230,223 @@ export default function NotificationsPage() {
       return;
     }
 
-    const notification: Notification = {
-      id: `notif-${Date.now()}`,
-      ...newNotification,
-      status: newNotification.scheduledFor ? 'scheduled' : 'sent',
-      sentAt: newNotification.scheduledFor ? undefined : new Date().toISOString(),
-      sentBy: 'Current Admin',
-      recipients: newNotification.targetAudience === 'all' ? 1247 : 
-                  newNotification.targetAudience === 'merchants' ? 986 : 261,
-      readCount: 0
-    };
+    try {
+      const requestBody = {
+        title: newNotification.title,
+        message: newNotification.message,
+        type: newNotification.type,
+        priority: newNotification.priority,
+        audience: newNotification.audience,
+        actions: newNotification.actions,
+        ...(newNotification.scheduledFor && { scheduledFor: newNotification.scheduledFor })
+      };
 
-    setNotifications([notification, ...notifications]);
-    setCreateDialogOpen(false);
-    setNewNotification({
-      title: '',
-      message: '',
-      type: 'announcement',
-      priority: 'medium',
-      targetAudience: 'all',
-      scheduledFor: ''
+      const response = await fetch('https://tillflow-backend.onrender.com/api/notifications/admin/notifications', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications([data.notification, ...notifications]);
+        setCreateDialogOpen(false);
+        setNewNotification({
+          title: '',
+          message: '',
+          type: 'announcement',
+          priority: 'medium',
+          audience: 'all',
+          scheduledFor: '',
+          actions: []
+        });
+
+        toast({
+          title: "Notification Created",
+          description: "Notification has been created successfully"
+        });
+      } else {
+        throw new Error(data.message || 'Failed to create notification');
+      }
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create notification",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdateNotification = async () => {
+    if (!selectedNotification) return;
+
+    try {
+      const requestBody = {
+        title: editNotification.title,
+        message: editNotification.message,
+        type: editNotification.type,
+        priority: editNotification.priority,
+        audience: editNotification.audience,
+        actions: editNotification.actions,
+        ...(editNotification.scheduledFor && { scheduledFor: editNotification.scheduledFor })
+      };
+
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/notifications/admin/notifications/${selectedNotification.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(notifications.map(n => 
+          n.id === selectedNotification.id ? data.notification : n
+        ));
+        setEditDialogOpen(false);
+        setSelectedNotification(null);
+        
+        toast({
+          title: "Notification Updated",
+          description: "Notification has been updated successfully"
+        });
+      } else {
+        throw new Error(data.message || 'Failed to update notification');
+      }
+    } catch (error) {
+      console.error('Error updating notification:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update notification",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePublishNotification = async (notificationId: string) => {
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/notifications/admin/notifications/${notificationId}/publish`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(notifications.map(n => 
+          n.id === notificationId ? { ...n, status: 'sent', isActive: true } : n
+        ));
+        
+        toast({
+          title: "Notification Published",
+          description: "Notification has been published successfully"
+        });
+      } else {
+        throw new Error(data.message || 'Failed to publish notification');
+      }
+    } catch (error) {
+      console.error('Error publishing notification:', error);
+      toast({
+        title: "Error",
+        description: "Failed to publish notification",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteNotification = async () => {
+    if (!notificationToDelete) return;
+
+    try {
+      const response = await fetch(`https://tillflow-backend.onrender.com/api/notifications/admin/notifications/${notificationToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setNotifications(notifications.filter(n => n.id !== notificationToDelete));
+        setDeleteDialogOpen(false);
+        setNotificationToDelete(null);
+        
+        toast({
+          title: "Notification Deleted",
+          description: "Notification has been deleted successfully"
+        });
+      } else {
+        throw new Error(data.message || 'Failed to delete notification');
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete notification",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const openEditDialog = (notification: Notification) => {
+    setSelectedNotification(notification);
+    setEditNotification({
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      priority: notification.priority,
+      audience: notification.audience,
+      scheduledFor: notification.scheduledFor || '',
+      actions: notification.actions || []
     });
+    setEditDialogOpen(true);
+  };
 
-    toast({
-      title: "Notification Created",
-      description: newNotification.scheduledFor ? "Notification scheduled successfully" : "Notification sent successfully"
+  const addAction = () => {
+    setNewNotification({
+      ...newNotification,
+      actions: [...newNotification.actions, { text: '', url: '', type: 'primary' }]
     });
   };
 
-  const handleDeleteNotification = () => {
-    if (notificationToDelete) {
-      setNotifications(notifications.filter(n => n.id !== notificationToDelete));
-      setDeleteDialogOpen(false);
-      setNotificationToDelete(null);
-      toast({
-        title: "Notification Deleted",
-        description: "The notification has been removed"
-      });
-    }
+  const updateAction = (index: number, field: string, value: string) => {
+    const updatedActions = [...newNotification.actions];
+    updatedActions[index] = { ...updatedActions[index], [field]: value };
+    setNewNotification({ ...newNotification, actions: updatedActions });
+  };
+
+  const removeAction = (index: number) => {
+    const updatedActions = newNotification.actions.filter((_, i) => i !== index);
+    setNewNotification({ ...newNotification, actions: updatedActions });
   };
 
   const getTypeIcon = (type: Notification['type']) => {
@@ -191,6 +455,7 @@ export default function NotificationsPage() {
       case 'announcement': return <Bell className="h-4 w-4" />;
       case 'alert': return <AlertTriangle className="h-4 w-4" />;
       case 'info': return <Info className="h-4 w-4" />;
+      default: return <Bell className="h-4 w-4" />;
     }
   };
 
@@ -200,6 +465,7 @@ export default function NotificationsPage() {
       case 'announcement': return 'bg-blue-500/10 text-blue-600 border-blue-200';
       case 'alert': return 'bg-red-500/10 text-red-600 border-red-200';
       case 'info': return 'bg-gray-500/10 text-gray-600 border-gray-200';
+      default: return 'bg-gray-500/10 text-gray-600 border-gray-200';
     }
   };
 
@@ -209,6 +475,7 @@ export default function NotificationsPage() {
       case 'high': return 'bg-orange-500/10 text-orange-600 border-orange-200';
       case 'medium': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200';
       case 'low': return 'bg-green-500/10 text-green-600 border-green-200';
+      default: return 'bg-gray-500/10 text-gray-600 border-gray-200';
     }
   };
 
@@ -217,15 +484,28 @@ export default function NotificationsPage() {
       case 'sent': return 'bg-green-500/10 text-green-600 border-green-200';
       case 'scheduled': return 'bg-blue-500/10 text-blue-600 border-blue-200';
       case 'draft': return 'bg-gray-500/10 text-gray-600 border-gray-200';
+      default: return 'bg-gray-500/10 text-gray-600 border-gray-200';
     }
   };
 
-  const stats = {
-    total: notifications.length,
-    sent: notifications.filter(n => n.status === 'sent').length,
-    scheduled: notifications.filter(n => n.status === 'scheduled').length,
-    totalRecipients: notifications.reduce((sum, n) => sum + (n.status === 'sent' ? n.readCount : 0), 0)
+  const getRecipientCount = (audience: Notification['audience']) => {
+    switch (audience) {
+      case 'all': return 1247;
+      case 'merchants': return 986;
+      case 'admins': return 261;
+      default: return 0;
+    }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -238,103 +518,155 @@ export default function NotificationsPage() {
               Send maintenance alerts, announcements, and communications
             </p>
           </div>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Send className="h-4 w-4" />
-                Create Notification
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Notification</DialogTitle>
-                <DialogDescription>
-                  Compose a notification to send to your users
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="Enter notification title"
-                    value={newNotification.title}
-                    onChange={(e) => setNewNotification({ ...newNotification, title: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="message">Message</Label>
-                  <Textarea
-                    id="message"
-                    placeholder="Enter notification message"
-                    value={newNotification.message}
-                    onChange={(e) => setNewNotification({ ...newNotification, message: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+          <div className="flex gap-2">
+            <Button onClick={fetchData} variant="outline" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Send className="h-4 w-4" />
+                  Create Notification
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Create New Notification</DialogTitle>
+                  <DialogDescription>
+                    Compose a notification to send to your users
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="type">Type</Label>
-                    <Select value={newNotification.type} onValueChange={(value: any) => setNewNotification({ ...newNotification, type: value })}>
-                      <SelectTrigger id="type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="announcement">Announcement</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                        <SelectItem value="alert">Alert</SelectItem>
-                        <SelectItem value="info">Info</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select value={newNotification.priority} onValueChange={(value: any) => setNewNotification({ ...newNotification, priority: value })}>
-                      <SelectTrigger id="priority">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="audience">Target Audience</Label>
-                    <Select value={newNotification.targetAudience} onValueChange={(value: any) => setNewNotification({ ...newNotification, targetAudience: value })}>
-                      <SelectTrigger id="audience">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Users</SelectItem>
-                        <SelectItem value="merchants">Merchants Only</SelectItem>
-                        <SelectItem value="admins">Admins Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="scheduledFor">Schedule (Optional)</Label>
+                    <Label htmlFor="title">Title</Label>
                     <Input
-                      id="scheduledFor"
-                      type="datetime-local"
-                      value={newNotification.scheduledFor}
-                      onChange={(e) => setNewNotification({ ...newNotification, scheduledFor: e.target.value })}
+                      id="title"
+                      placeholder="Enter notification title"
+                      value={newNotification.title}
+                      onChange={(e) => setNewNotification({ ...newNotification, title: e.target.value })}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="message">Message</Label>
+                    <Textarea
+                      id="message"
+                      placeholder="Enter notification message"
+                      value={newNotification.message}
+                      onChange={(e) => setNewNotification({ ...newNotification, message: e.target.value })}
+                      rows={4}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Type</Label>
+                      <Select value={newNotification.type} onValueChange={(value: any) => setNewNotification({ ...newNotification, type: value })}>
+                        <SelectTrigger id="type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="announcement">Announcement</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                          <SelectItem value="alert">Alert</SelectItem>
+                          <SelectItem value="info">Info</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="priority">Priority</Label>
+                      <Select value={newNotification.priority} onValueChange={(value: any) => setNewNotification({ ...newNotification, priority: value })}>
+                        <SelectTrigger id="priority">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="audience">Target Audience</Label>
+                      <Select value={newNotification.audience} onValueChange={(value: any) => setNewNotification({ ...newNotification, audience: value })}>
+                        <SelectTrigger id="audience">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Users</SelectItem>
+                          <SelectItem value="merchants">Merchants Only</SelectItem>
+                          <SelectItem value="admins">Admins Only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="scheduledFor">Schedule (Optional)</Label>
+                      <Input
+                        id="scheduledFor"
+                        type="datetime-local"
+                        value={newNotification.scheduledFor}
+                        onChange={(e) => setNewNotification({ ...newNotification, scheduledFor: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Actions Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Actions</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addAction}>
+                        Add Action
+                      </Button>
+                    </div>
+                    {newNotification.actions.map((action, index) => (
+                      <div key={index} className="flex gap-2 items-end">
+                        <div className="flex-1 space-y-2">
+                          <Input
+                            placeholder="Button text"
+                            value={action.text}
+                            onChange={(e) => updateAction(index, 'text', e.target.value)}
+                          />
+                          <Input
+                            placeholder="URL"
+                            value={action.url}
+                            onChange={(e) => updateAction(index, 'url', e.target.value)}
+                          />
+                        </div>
+                        <Select 
+                          value={action.type} 
+                          onValueChange={(value: 'primary' | 'secondary') => updateAction(index, 'type', value)}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="primary">Primary</SelectItem>
+                            <SelectItem value="secondary">Secondary</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeAction(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreateNotification}>
-                  {newNotification.scheduledFor ? 'Schedule' : 'Send'} Notification
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleCreateNotification}>
+                    Create Notification
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Statistics Cards */}
@@ -372,7 +704,10 @@ export default function NotificationsPage() {
               <Eye className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalRecipients.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{(stats.totalReads || 0).toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                {Math.round(stats.readRate || 0)}% read rate
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -427,71 +762,98 @@ export default function NotificationsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredNotifications.map((notification) => (
-                <div key={notification.id} className="flex items-start gap-4 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
-                  <div className={`p-2 rounded-lg ${getTypeColor(notification.type)}`}>
-                    {getTypeIcon(notification.type)}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-semibold">{notification.title}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                          {notification.message}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedNotification(notification);
-                            setViewDialogOpen(true);
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setNotificationToDelete(notification.id);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className={getTypeColor(notification.type)}>
-                        {notification.type}
-                      </Badge>
-                      <Badge variant="outline" className={getPriorityColor(notification.priority)}>
-                        {notification.priority}
-                      </Badge>
-                      <Badge variant="outline" className={getStatusColor(notification.status)}>
-                        {notification.status}
-                      </Badge>
-                      <Badge variant="outline">
-                        {notification.targetAudience}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>By {notification.sentBy}</span>
-                      {notification.sentAt && (
-                        <span>Sent: {new Date(notification.sentAt).toLocaleString()}</span>
-                      )}
-                      {notification.scheduledFor && (
-                        <span>Scheduled: {new Date(notification.scheduledFor).toLocaleString()}</span>
-                      )}
-                      {notification.status === 'sent' && (
-                        <span>{notification.readCount} / {notification.recipients} read</span>
-                      )}
-                    </div>
-                  </div>
+              {filteredNotifications.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Bell className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                  <p className="font-medium">No notifications found</p>
+                  <p className="text-sm">Try adjusting your search or filters</p>
                 </div>
-              ))}
+              ) : (
+                filteredNotifications.map((notification) => (
+                  <div key={notification.id} className="flex items-start gap-4 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                    <div className={`p-2 rounded-lg ${getTypeColor(notification.type)}`}>
+                      {getTypeIcon(notification.type)}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="font-semibold">{notification.title}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                            {notification.message}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedNotification(notification);
+                              setViewDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditDialog(notification)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          {notification.status === 'draft' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePublishNotification(notification.id)}
+                              className="text-emerald-600 hover:text-emerald-700"
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setNotificationToDelete(notification.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline" className={getTypeColor(notification.type)}>
+                          {notification.type}
+                        </Badge>
+                        <Badge variant="outline" className={getPriorityColor(notification.priority)}>
+                          {notification.priority}
+                        </Badge>
+                        <Badge variant="outline" className={getStatusColor(notification.status)}>
+                          {notification.status}
+                        </Badge>
+                        <Badge variant="outline">
+                          {notification.audience}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>By {notification.createdBy?.name || 'Unknown'}</span>
+                        <span>Created: {new Date(notification.createdAt).toLocaleString()}</span>
+                        {notification.scheduledFor && (
+                          <span>Scheduled: {new Date(notification.scheduledFor).toLocaleString()}</span>
+                        )}
+                        {notification.status === 'sent' && (
+                          <span>
+                            {notification.readCount || 0} / {getRecipientCount(notification.audience)} read 
+                            ({Math.round(((notification.readCount || 0) / getRecipientCount(notification.audience)) * 100)}%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -510,7 +872,7 @@ export default function NotificationsPage() {
                 </div>
                 <div>
                   <Label>Message</Label>
-                  <p className="mt-1 text-sm">{selectedNotification.message}</p>
+                  <p className="mt-1 text-sm whitespace-pre-wrap">{selectedNotification.message}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -533,20 +895,18 @@ export default function NotificationsPage() {
                   </div>
                   <div>
                     <Label>Target Audience</Label>
-                    <p className="mt-1 text-sm">{selectedNotification.targetAudience}</p>
+                    <p className="mt-1 text-sm">{selectedNotification.audience}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Sent By</Label>
-                    <p className="mt-1 text-sm">{selectedNotification.sentBy}</p>
+                    <Label>Created By</Label>
+                    <p className="mt-1 text-sm">{selectedNotification.createdBy?.name || 'Unknown'}</p>
                   </div>
-                  {selectedNotification.sentAt && (
-                    <div>
-                      <Label>Sent At</Label>
-                      <p className="mt-1 text-sm">{new Date(selectedNotification.sentAt).toLocaleString()}</p>
-                    </div>
-                  )}
+                  <div>
+                    <Label>Created At</Label>
+                    <p className="mt-1 text-sm">{new Date(selectedNotification.createdAt).toLocaleString()}</p>
+                  </div>
                   {selectedNotification.scheduledFor && (
                     <div>
                       <Label>Scheduled For</Label>
@@ -557,16 +917,124 @@ export default function NotificationsPage() {
                     <div>
                       <Label>Read Rate</Label>
                       <p className="mt-1 text-sm">
-                        {selectedNotification.readCount} / {selectedNotification.recipients} 
-                        ({Math.round((selectedNotification.readCount / selectedNotification.recipients) * 100)}%)
+                        {selectedNotification.readCount || 0} / {getRecipientCount(selectedNotification.audience)} 
+                        ({Math.round(((selectedNotification.readCount || 0) / getRecipientCount(selectedNotification.audience)) * 100)}%)
                       </p>
                     </div>
                   )}
                 </div>
+                {selectedNotification.actions && selectedNotification.actions.length > 0 && (
+                  <div>
+                    <Label>Actions</Label>
+                    <div className="mt-2 space-y-2">
+                      {selectedNotification.actions.map((action, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 border rounded">
+                          <Badge variant={action.type === 'primary' ? 'default' : 'outline'}>
+                            {action.text}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">{action.url}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <DialogFooter>
               <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Notification</DialogTitle>
+              <DialogDescription>
+                Update notification details
+              </DialogDescription>
+            </DialogHeader>
+            {selectedNotification && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-title">Title</Label>
+                  <Input
+                    id="edit-title"
+                    placeholder="Enter notification title"
+                    value={editNotification.title}
+                    onChange={(e) => setEditNotification({ ...editNotification, title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-message">Message</Label>
+                  <Textarea
+                    id="edit-message"
+                    placeholder="Enter notification message"
+                    value={editNotification.message}
+                    onChange={(e) => setEditNotification({ ...editNotification, message: e.target.value })}
+                    rows={4}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-type">Type</Label>
+                    <Select value={editNotification.type} onValueChange={(value: any) => setEditNotification({ ...editNotification, type: value })}>
+                      <SelectTrigger id="edit-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="announcement">Announcement</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                        <SelectItem value="alert">Alert</SelectItem>
+                        <SelectItem value="info">Info</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-priority">Priority</Label>
+                    <Select value={editNotification.priority} onValueChange={(value: any) => setEditNotification({ ...editNotification, priority: value })}>
+                      <SelectTrigger id="edit-priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-audience">Target Audience</Label>
+                    <Select value={editNotification.audience} onValueChange={(value: any) => setEditNotification({ ...editNotification, audience: value })}>
+                      <SelectTrigger id="edit-audience">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Users</SelectItem>
+                        <SelectItem value="merchants">Merchants Only</SelectItem>
+                        <SelectItem value="admins">Admins Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-scheduledFor">Schedule (Optional)</Label>
+                    <Input
+                      id="edit-scheduledFor"
+                      type="datetime-local"
+                      value={editNotification.scheduledFor}
+                      onChange={(e) => setEditNotification({ ...editNotification, scheduledFor: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleUpdateNotification}>Update Notification</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
